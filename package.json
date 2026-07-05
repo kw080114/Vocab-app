@@ -1,0 +1,20 @@
+{
+  "name": "vocab-memo-webapp",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint",
+    "extract:sat": "node scripts/extractSatVocabFromHtml.js",
+    "seed:sat": "node scripts/seedSatVocab.js",
+    "setup:user-schema": "node scripts/setupUserSchema.js"
+  },
+  "dependencies": {
+    "mongodb": "latest",
+    "next": "latest",
+    "react": "latest",
+    "react-dom": "latest"
+  }
+}

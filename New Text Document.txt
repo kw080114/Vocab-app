@@ -1,0 +1,1 @@
+MONGODB_URI=mongodb+srv://kw080114:Jingjc1629@project1.pzqlghj.mongodb.net/

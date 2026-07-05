@@ -1,0 +1,337 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Vocab Memo</title>
+  <style>
+    :root {
+      --background: #eef2ff;
+      --card: #ffffff;
+      --text: #172033;
+      --muted: #667085;
+      --primary: #4f46e5;
+      --primary-hover: #4338ca;
+      --correct: #16a34a;
+      --correct-hover: #15803d;
+      --wrong: #dc2626;
+      --wrong-hover: #b91c1c;
+      --border: #dbe2f0;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      min-height: 100vh;
+      margin: 0;
+      padding: 24px;
+      display: grid;
+      place-items: center;
+      color: var(--text);
+      background:
+        radial-gradient(circle at top left, #dbeafe 0, transparent 35%),
+        radial-gradient(circle at bottom right, #e9d5ff 0, transparent 35%),
+        var(--background);
+      font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+
+    .app {
+      width: min(100%, 680px);
+    }
+
+    .header {
+      margin-bottom: 20px;
+      text-align: center;
+    }
+
+    .header h1 {
+      margin: 0 0 8px;
+      font-size: clamp(2rem, 7vw, 3.25rem);
+      letter-spacing: -0.04em;
+    }
+
+    .header p {
+      margin: 0;
+      color: var(--muted);
+      font-size: 1.05rem;
+    }
+
+    .scoreboard {
+      display: flex;
+      justify-content: center;
+      gap: 24px;
+      margin-bottom: 16px;
+      font-weight: 700;
+    }
+
+    .scoreboard span {
+      min-width: 92px;
+      padding: 8px 14px;
+      border: 1px solid var(--border);
+      border-radius: 999px;
+      background: rgb(255 255 255 / 70%);
+      text-align: center;
+    }
+
+    .flashcard {
+      min-height: 360px;
+      padding: clamp(28px, 7vw, 56px);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      border: 1px solid rgb(255 255 255 / 80%);
+      border-radius: 28px;
+      background: var(--card);
+      box-shadow: 0 24px 60px rgb(30 41 59 / 14%);
+      text-align: center;
+    }
+
+    .word-label {
+      margin-bottom: 12px;
+      color: var(--muted);
+      font-size: 0.8rem;
+      font-weight: 800;
+      letter-spacing: 0.16em;
+      text-transform: uppercase;
+    }
+
+    #word {
+      margin: 0;
+      font-size: clamp(3rem, 12vw, 5.5rem);
+      line-height: 1;
+      letter-spacing: -0.055em;
+    }
+
+    #definition {
+      min-height: 36px;
+      margin: 28px 0;
+      color: #344054;
+      font-size: clamp(1.2rem, 4vw, 1.6rem);
+      font-weight: 600;
+    }
+
+    #message {
+      min-height: 24px;
+      margin: 16px 0 0;
+      color: var(--muted);
+      font-weight: 700;
+      text-align: center;
+    }
+
+    .hidden {
+      visibility: hidden;
+    }
+
+    .actions {
+      width: 100%;
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 12px;
+    }
+
+    button {
+      min-height: 52px;
+      border: 0;
+      border-radius: 14px;
+      color: white;
+      font: inherit;
+      font-weight: 800;
+      cursor: pointer;
+      transition: transform 160ms ease, background-color 160ms ease, box-shadow 160ms ease;
+    }
+
+    button:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 8px 20px rgb(30 41 59 / 18%);
+    }
+
+    button:focus-visible {
+      outline: 3px solid #fbbf24;
+      outline-offset: 3px;
+    }
+
+    #reveal-button {
+      grid-column: 1 / -1;
+      background: var(--primary);
+    }
+
+    #reveal-button:hover {
+      background: var(--primary-hover);
+    }
+
+    #correct-button {
+      background: var(--correct);
+    }
+
+    #correct-button:hover {
+      background: var(--correct-hover);
+    }
+
+    #wrong-button {
+      background: var(--wrong);
+    }
+
+    #wrong-button:hover {
+      background: var(--wrong-hover);
+    }
+
+    @media (max-width: 480px) {
+      .actions {
+        grid-template-columns: 1fr;
+      }
+
+      #reveal-button {
+        grid-column: auto;
+      }
+    }
+  </style>
+</head>
+<body>
+  <main class="app">
+    <header class="header">
+      <h1>Vocab Memo</h1>
+      <p>Reveal the meaning, then grade your answer.</p>
+    </header>
+
+    <section class="scoreboard" aria-label="Study score">
+      <span>Correct: <strong id="correct-score">0</strong></span>
+      <span>Wrong: <strong id="wrong-score">0</strong></span>
+    </section>
+    
+    <section class="scoreboard" aria-label="Study score">
+      <span>Accuracy: <strong id="accuracy-score">0</strong></span>
+      
+    </section>
+
+
+
+    <article class="flashcard">
+      <span class="word-label">Current word</span>
+      <h2 id="word">acute</h2>
+      <p id="definition" class="hidden">sharp; shrewd</p>
+
+      <div class="actions">
+        <button id="reveal-button" type="button">Reveal Definition</button>
+        <button id="correct-button" type="button">Correct</button>
+        <button id="wrong-button" type="button">Wrong</button>
+      </div>
+    </article>
+
+    <p id="message">Loading vocab entries...</p>
+  </main>
+
+  <script>
+    let vocabulary = [];
+
+    let currentIndex = 0;
+    let correctCount = 0;
+    let wrongCount = 0;
+
+    const wordElement = document.querySelector("#word");
+    const definitionElement = document.querySelector("#definition");
+    const revealButton = document.querySelector("#reveal-button");
+    const correctButton = document.querySelector("#correct-button");
+    const wrongButton = document.querySelector("#wrong-button");
+    const correctScoreElement = document.querySelector("#correct-score");
+    const wrongScoreElement = document.querySelector("#wrong-score");
+    const accuracyElement = document.querySelector("#accuracy-score");
+    const messageElement = document.querySelector("#message");
+
+    async function loadVocabulary() {
+      try {
+        messageElement.textContent = "Loading vocab entries...";
+        setButtonsDisabled(true);
+
+        // This URL calls your Next.js API route: app/api/entries/route.js
+        // That API route talks to MongoDB. The browser should NOT talk to MongoDB directly.
+        const response = await fetch("/api/entries");
+
+        if (!response.ok) {
+          throw new Error("The API request failed.");
+        }
+
+        const entries = await response.json();
+
+        if (entries.length === 0) {
+          throw new Error("No vocab entries were found in the database.");
+        }
+
+        vocabulary = entries;
+        currentIndex = 0;
+        messageElement.textContent = "";
+        setButtonsDisabled(false);
+        updateCard();
+      } catch (error) {
+        wordElement.textContent = "Could not load cards";
+        definitionElement.textContent = "Check your API route, MongoDB connection, and collection name.";
+        definitionElement.classList.remove("hidden");
+        messageElement.textContent = error.message;
+        setButtonsDisabled(true);
+      }
+    }
+
+    function setButtonsDisabled(isDisabled) {
+      revealButton.disabled = isDisabled;
+      correctButton.disabled = isDisabled;
+      wrongButton.disabled = isDisabled;
+    }
+
+    function revealDefinition() {
+
+	definitionElement.classList.toggle("hidden");
+	if(revealButton.textContent == "Reveal Definition"){
+		revealButton.textContent = "Hide Definition";
+	}
+	else{
+	revealButton.textContent = "Reveal Definition";
+
+	}
+    }
+
+    function recordAnswer(wasCorrect) {
+	if(vocabulary.length === 0){
+		return;
+	}
+
+	if(wasCorrect){
+		correctCount+=1;
+	}
+	else{
+		wrongCount += 1;
+	}
+	correctScoreElement.textContent = correctCount;
+	wrongScoreElement.textContent = wrongCount;
+	currentIndex = (currentIndex +1)%vocabulary.length;
+	accuracyElement.textContent = (correctCount/(correctCount+wrongCount)*100).toFixed(2)+"%";
+	updateCard();
+    }
+
+    function updateCard() {
+	if(vocabulary.length === 0){
+		return;
+	}
+
+	const voc = vocabulary[currentIndex];
+	wordElement.textContent = voc.word;
+	definitionElement.textContent = voc.definition;
+	definitionElement.classList.add("hidden");
+	revealButton.textContent  = "Reveal Definition";
+    }
+
+    revealButton.addEventListener("click", revealDefinition);
+
+    correctButton.addEventListener("click", function () {
+      recordAnswer(true);
+    });
+
+    wrongButton.addEventListener("click", function () {
+      recordAnswer(false);
+    });
+
+    loadVocabulary();
+  </script>
+</body>
+</html>
