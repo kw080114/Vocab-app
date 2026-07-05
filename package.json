@@ -2,6 +2,9 @@
   "name": "vocab-memo-webapp",
   "version": "0.1.0",
   "private": true,
+  "engines": {
+    "node": "22.x"
+  },
   "scripts": {
     "dev": "next dev",
     "build": "next build",
@@ -12,9 +15,9 @@
     "setup:user-schema": "node scripts/setupUserSchema.js"
   },
   "dependencies": {
-    "mongodb": "latest",
-    "next": "latest",
-    "react": "latest",
-    "react-dom": "latest"
+    "mongodb": "7.3.0",
+    "next": "16.2.9",
+    "react": "19.2.7",
+    "react-dom": "19.2.7"
   }
 }
