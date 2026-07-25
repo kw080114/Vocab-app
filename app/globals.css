@@ -143,6 +143,45 @@ body {
   font-weight: 800;
 }
 
+.set-list {
+  width: min(100%, 520px);
+  display: grid;
+  gap: 14px;
+}
+
+.set-card {
+  min-height: auto;
+  padding: 18px;
+  display: grid;
+  gap: 8px;
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  color: var(--text);
+  background: #f8fafc;
+  text-align: left;
+}
+
+.set-card:hover {
+  background: #eef2ff;
+}
+
+.set-card span {
+  color: var(--muted);
+  font-size: 0.95rem;
+  font-weight: 700;
+}
+
+.set-card .set-card-title {
+  color: var(--text);
+  font-size: 1.2rem;
+  font-weight: 900;
+}
+
+.library-logout {
+  width: min(100%, 520px);
+  margin-top: 16px;
+}
+
 .score {
   margin: 0 0 28px;
   padding: 8px 14px;

@@ -77,6 +77,7 @@ export async function PATCH(request) {
     const username = body.username?.trim().toLowerCase();
     const email = body.email?.trim().toLowerCase();
     const setName = body.setName || defaultSetName;
+    const setId = body.setId || null;
     const currentIndex = Number(body.currentIndex) || 0;
     const wrongIndex = Number.isInteger(body.wrongIndex) ? body.wrongIndex : null;
     const removeWrongIndex = Number.isInteger(body.removeWrongIndex)
@@ -127,7 +128,7 @@ export async function PATCH(request) {
 
     const nextProgressForSet = {
       setName,
-      setId: progressForSet?.setId || null,
+      setId: setId || progressForSet?.setId || null,
       currentIndex,
       wrongCards: [...wrongCardsByIndex.values()].sort(
         (first, second) => first.index - second.index

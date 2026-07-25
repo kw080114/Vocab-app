@@ -8,19 +8,6 @@ import StudyModeMenu from "../components/StudyModeMenu";
 
 const defaultSetName = "Test Ninjas SAT Vocabulary";
 
-function getLatestProgress(studyProgress) {
-  return (
-    [...(studyProgress || [])]
-      .sort((first, second) => {
-        return (
-          new Date(second.lastStudiedAt || 0) -
-          new Date(first.lastStudiedAt || 0)
-        );
-      })
-      .at(0) || null
-  );
-}
-
 function normalizeWrongCards(progress) {
   if (Array.isArray(progress?.wrongCards)) {
     return progress.wrongCards;
@@ -37,6 +24,12 @@ function normalizeWrongCards(progress) {
   return [];
 }
 
+function getProgressBySetName(studyProgress) {
+  return Object.fromEntries(
+    (studyProgress || []).map((progress) => [progress.setName, progress])
+  );
+}
+
 export default function HomePage() {
   const [currentUser, setCurrentUser] = useState(null);
   const [authMode, setAuthMode] = useState("login");
@@ -44,6 +37,8 @@ export default function HomePage() {
   const [username, setUsername] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [availableSets, setAvailableSets] = useState([]);
+  const [selectedSet, setSelectedSet] = useState(null);
   const [allEntries, setAllEntries] = useState([]);
   const [vocabList, setVocabList] = useState([]);
   const [currentProgress, setCurrentProgress] = useState(null);
@@ -69,10 +64,10 @@ export default function HomePage() {
     setName(parsedUser.name || "");
     setUsername(parsedUser.username || "");
     setEmail(parsedUser.email || "");
-    loadUserAndSet(parsedUser);
+    loadUserAndLibrary(parsedUser);
   }, []);
 
-  async function loadUserAndSet(user) {
+  async function loadUserAndLibrary(user) {
     try {
       setIsLoading(true);
       setErrorMessage("");
@@ -88,28 +83,21 @@ export default function HomePage() {
       }
 
       const userWithProgress = await progressResponse.json();
-      const latestProgress = getLatestProgress(userWithProgress.studyProgress);
-      const activeSetName = latestProgress?.setName || defaultSetName;
-      const entriesUrl = new URL("/api/entries", window.location.origin);
-      entriesUrl.searchParams.set("setName", activeSetName);
+      const setsResponse = await fetch("/api/sets");
 
-      const entriesResponse = await fetch(entriesUrl);
-
-      if (!entriesResponse.ok) {
-        throw new Error("The server could not load vocab entries.");
+      if (!setsResponse.ok) {
+        throw new Error("The server could not load vocab sets.");
       }
 
-      const entries = await entriesResponse.json();
-      const entriesWithStudyIndex = entries.map((entry, index) => ({
-        ...entry,
-        studyIndex: index
-      }));
+      const sets = await setsResponse.json();
 
       setCurrentUser(userWithProgress);
-      setAllEntries(entriesWithStudyIndex);
+      setAvailableSets(sets);
+      setSelectedSet(null);
+      setAllEntries([]);
       setVocabList([]);
-      setCurrentProgress(latestProgress);
-      setSavedWrongCards(normalizeWrongCards(latestProgress));
+      setCurrentProgress(null);
+      setSavedWrongCards([]);
       setStudyMode("");
       setCurrentIndex(0);
       setShowDefinition(false);
@@ -175,7 +163,7 @@ export default function HomePage() {
       setEmail(user.email || "");
       setPassword("");
 
-      await loadUserAndSet(user);
+      await loadUserAndLibrary(user);
     } catch (error) {
       setErrorMessage(error.message);
       setIsLoading(false);
@@ -186,6 +174,8 @@ export default function HomePage() {
     window.localStorage.removeItem("vocabMemoUser");
     setCurrentUser(null);
     setAuthMode("login");
+    setAvailableSets([]);
+    setSelectedSet(null);
     setAllEntries([]);
     setVocabList([]);
     setCurrentProgress(null);
@@ -205,6 +195,82 @@ export default function HomePage() {
     setWrongCount(0);
     setShowDefinition(false);
     setReviewDecisionCard(null);
+  }
+
+  async function selectSet(set) {
+    try {
+      setIsLoading(true);
+      setErrorMessage("");
+
+      const entriesUrl = new URL("/api/entries", window.location.origin);
+      entriesUrl.searchParams.set("setName", set.name);
+
+      const entriesResponse = await fetch(entriesUrl);
+
+      if (!entriesResponse.ok) {
+        throw new Error("Could not load cards for that vocab set.");
+      }
+
+      const entries = await entriesResponse.json();
+      const indexedEntries = entries.map((entry, index) => ({
+        ...entry,
+        studyIndex: index
+      }));
+      const progressForSet =
+        currentUser?.studyProgress?.find(
+          (progress) => progress.setName === set.name
+        ) || {
+          setName: set.name,
+          setId: set._id || null,
+          currentIndex: 0,
+          wrongCards: [],
+          lastStudiedAt: null
+        };
+
+      setSelectedSet(set);
+      setAllEntries(indexedEntries);
+      setVocabList([]);
+      setCurrentProgress(progressForSet);
+      setSavedWrongCards(normalizeWrongCards(progressForSet));
+      setCurrentIndex(0);
+      setStudyMode("");
+      resetSessionCounters();
+    } catch (error) {
+      setErrorMessage(error.message);
+    } finally {
+      setIsLoading(false);
+    }
+  }
+
+  function returnToSetLibrary() {
+    setSelectedSet(null);
+    setAllEntries([]);
+    setVocabList([]);
+    setCurrentProgress(null);
+    setSavedWrongCards([]);
+    setCurrentIndex(0);
+    setStudyMode("");
+    resetSessionCounters();
+  }
+
+  function updateCurrentUserProgress(savedProgress) {
+    setCurrentUser((previousUser) => {
+      if (!previousUser) {
+        return previousUser;
+      }
+
+      const nextStudyProgress = [
+        ...(previousUser.studyProgress || []).filter(
+          (progress) => progress.setName !== savedProgress.setName
+        ),
+        savedProgress
+      ];
+
+      return {
+        ...previousUser,
+        studyProgress: nextStudyProgress
+      };
+    });
   }
 
   function startContinueMode() {
@@ -228,7 +294,8 @@ export default function HomePage() {
   }
 
   async function startOverMode() {
-    const setName = currentProgress?.setName || defaultSetName;
+    const setName =
+      selectedSet?.name || currentProgress?.setName || defaultSetName;
 
     await saveProgress({
       setName,
@@ -299,6 +366,7 @@ export default function HomePage() {
           username: currentUser.username,
           email: currentUser.email,
           setName,
+          setId: selectedSet?._id || currentProgress?.setId || null,
           currentIndex: nextProgressIndex,
           wrongIndex
         })
@@ -307,6 +375,7 @@ export default function HomePage() {
       if (response.ok) {
         const savedProgress = await response.json();
         setCurrentProgress(savedProgress.studyProgress);
+        updateCurrentUserProgress(savedProgress.studyProgress);
       }
     } catch (error) {
       console.error("Could not save progress yet:", error);
@@ -314,7 +383,8 @@ export default function HomePage() {
   }
 
   async function removeWrongCardFromProgress(studyIndex) {
-    const setName = currentProgress?.setName || defaultSetName;
+    const setName =
+      selectedSet?.name || currentProgress?.setName || defaultSetName;
     const nextVocabList = vocabList.filter(
       (entry) => entry.studyIndex !== studyIndex
     );
@@ -341,6 +411,7 @@ export default function HomePage() {
           username: currentUser.username,
           email: currentUser.email,
           setName,
+          setId: selectedSet?._id || currentProgress?.setId || null,
           currentIndex: currentProgress?.currentIndex ?? 0,
           removeWrongIndex: studyIndex
         })
@@ -349,6 +420,8 @@ export default function HomePage() {
       if (response.ok) {
         const savedProgress = await response.json();
         setCurrentProgress(savedProgress.studyProgress);
+        setSavedWrongCards(normalizeWrongCards(savedProgress.studyProgress));
+        updateCurrentUserProgress(savedProgress.studyProgress);
       }
     } catch (error) {
       console.error("Could not remove missed card yet:", error);
@@ -428,13 +501,36 @@ export default function HomePage() {
     );
   }
 
+  if (!selectedSet) {
+    return (
+      <SetLibrary
+        label="Set Library"
+        title="Choose a vocab set"
+        message={
+          errorMessage ||
+          "Each set keeps its own saved card and missed-card history."
+        }
+        sets={availableSets}
+        progressBySetName={getProgressBySetName(currentUser.studyProgress)}
+        onSelectSet={selectSet}
+        onLogOut={logOut}
+      />
+    );
+  }
+
   if (allEntries.length === 0) {
     return (
       <SetLibrary
         label="No cards"
         title="No vocab entries found yet."
         message=""
-      />
+      >
+        <div className="buttons">
+          <button className="secondary" onClick={returnToSetLibrary}>
+            Change Set
+          </button>
+        </div>
+      </SetLibrary>
     );
   }
 
@@ -450,6 +546,7 @@ export default function HomePage() {
         onContinue={startContinueMode}
         onReviewMissed={startReviewMissedMode}
         onStartOver={startOverMode}
+        onChangeSet={returnToSetLibrary}
         onLogOut={logOut}
       />
     );
@@ -465,6 +562,9 @@ export default function HomePage() {
         <div className="buttons">
           <button className="reveal" onClick={() => setStudyMode("")}>
             Choose Another Mode
+          </button>
+          <button className="secondary" onClick={returnToSetLibrary}>
+            Change Set
           </button>
           <button className="secondary" onClick={logOut}>
             Log Out

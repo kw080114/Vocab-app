@@ -12,6 +12,8 @@
     "lint": "next lint",
     "extract:sat": "node scripts/extractSatVocabFromHtml.js",
     "seed:sat": "node scripts/seedSatVocab.js",
+    "extract:studytoday": "python scripts/extractStudyTodayVocab.py",
+    "seed:studytoday": "node scripts/seedStudyTodayVocab.js",
     "setup:user-schema": "node scripts/setupUserSchema.js"
   },
   "dependencies": {

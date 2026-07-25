@@ -8,6 +8,7 @@ export default function StudyModeMenu({
   onContinue,
   onReviewMissed,
   onStartOver,
+  onChangeSet,
   onLogOut
 }) {
   return (
@@ -36,6 +37,9 @@ export default function StudyModeMenu({
         </button>
         <button className="correct" onClick={onStartOver}>
           Start Over
+        </button>
+        <button className="secondary" onClick={onChangeSet}>
+          Change Set
         </button>
         <button className="secondary" onClick={onLogOut}>
           Log Out

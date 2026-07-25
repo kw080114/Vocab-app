@@ -12,8 +12,9 @@ export async function GET() {
     const sets = await db
       .collection(collectionName)
       .find({})
+      .sort({ name: 1 })
       .project({
-        _id: 0,
+        _id: 1,
         name: 1,
         description: 1,
         tags: 1
