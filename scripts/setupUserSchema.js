@@ -4,6 +4,7 @@ const { MongoClient } = require("mongodb");
 
 const databaseName = "vocabMemo";
 const usersCollectionName = "users";
+const defaultSetName = "Test Ninjas SAT Vocabulary";
 
 function loadEnvLocal() {
   const envPath = path.join(process.cwd(), ".env.local");
@@ -58,12 +59,23 @@ async function setupUserSchema() {
     }
 
     const usersCollection = db.collection(usersCollectionName);
-    const usersWithProgress = await usersCollection
-      .find({ studyProgress: { $exists: true } })
-      .toArray();
+    const users = await usersCollection.find({}).toArray();
 
-    for (const user of usersWithProgress) {
-      const migratedStudyProgress = user.studyProgress.map((progress) => {
+    for (const user of users) {
+      const migratedUsername =
+        user.username?.toLowerCase() || String(user._id).toLowerCase();
+      const existingStudyProgress = Array.isArray(user.studyProgress)
+        ? user.studyProgress
+        : [
+            {
+              setName: defaultSetName,
+              setId: null,
+              currentIndex: 0,
+              wrongCards: [],
+              lastStudiedAt: new Date()
+            }
+          ];
+      const migratedStudyProgress = existingStudyProgress.map((progress) => {
         if (Array.isArray(progress.wrongCards)) {
           return progress;
         }
@@ -88,8 +100,16 @@ async function setupUserSchema() {
         { _id: user._id },
         {
           $set: {
+            name: user.name || user.displayName || migratedUsername,
+            username: migratedUsername,
+            email: user.email?.toLowerCase() || `${migratedUsername}@example.invalid`,
+            passwordHash: user.passwordHash || null,
+            authProvider: user.authProvider || "local",
             studyProgress: migratedStudyProgress,
             updatedAt: new Date()
+          },
+          $unset: {
+            displayName: ""
           }
         },
         {
@@ -103,23 +123,23 @@ async function setupUserSchema() {
       validator: {
         $jsonSchema: {
           bsonType: "object",
-          required: ["username", "email"],
+          required: ["name", "username", "email", "passwordHash"],
           properties: {
+            name: {
+              bsonType: "string",
+              description: "User's full or display name."
+            },
             username: {
               bsonType: "string",
               description: "User's login-style name."
             },
-            displayName: {
-              bsonType: "string",
-              description: "Friendly name for the UI."
-            },
             email: {
-              bsonType: ["string", "null"],
-              description: "Optional until registration is added."
+              bsonType: "string",
+              description: "User's email address."
             },
             passwordHash: {
               bsonType: ["string", "null"],
-              description: "Future hashed password. Never store plain text passwords."
+              description: "Hashed password. Never store plain text passwords."
             },
             authProvider: {
               bsonType: "string",
@@ -162,7 +182,8 @@ async function setupUserSchema() {
       {},
       {
         $unset: {
-          activeStudy: ""
+          activeStudy: "",
+          displayName: ""
         }
       }
     );
@@ -172,6 +193,14 @@ async function setupUserSchema() {
       {
         unique: true,
         name: "unique_username"
+      }
+    );
+
+    await usersCollection.createIndex(
+      { email: 1 },
+      {
+        unique: true,
+        name: "unique_email"
       }
     );
 

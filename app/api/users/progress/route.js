@@ -36,7 +36,7 @@ function normalizeWrongCards(progress) {
 export async function GET(request) {
   try {
     const { searchParams } = new URL(request.url);
-    const username = searchParams.get("username");
+    const username = searchParams.get("username")?.toLowerCase();
     const email = searchParams.get("email")?.toLowerCase();
 
     if (!username || !email) {
@@ -55,7 +55,7 @@ export async function GET(request) {
 
     if (!user) {
       return NextResponse.json(
-        { message: "No beta user found with that username and email." },
+        { message: "No user found with that username and email." },
         { status: 404 }
       );
     }
@@ -74,7 +74,7 @@ export async function GET(request) {
 export async function PATCH(request) {
   try {
     const body = await request.json();
-    const username = body.username?.trim();
+    const username = body.username?.trim().toLowerCase();
     const email = body.email?.trim().toLowerCase();
     const setName = body.setName || defaultSetName;
     const currentIndex = Number(body.currentIndex) || 0;
@@ -97,7 +97,7 @@ export async function PATCH(request) {
 
     if (!existingUser) {
       return NextResponse.json(
-        { message: "No beta user found with that username and email." },
+        { message: "No user found with that username and email." },
         { status: 404 }
       );
     }

@@ -1,6 +1,10 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import BetaLoginForm from "../components/BetaLoginForm";
+import Flashcard from "../components/Flashcard";
+import SetLibrary from "../components/SetLibrary";
+import StudyModeMenu from "../components/StudyModeMenu";
 
 const defaultSetName = "Test Ninjas SAT Vocabulary";
 
@@ -35,8 +39,11 @@ function normalizeWrongCards(progress) {
 
 export default function HomePage() {
   const [currentUser, setCurrentUser] = useState(null);
+  const [authMode, setAuthMode] = useState("login");
+  const [name, setName] = useState("");
   const [username, setUsername] = useState("");
   const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
   const [allEntries, setAllEntries] = useState([]);
   const [vocabList, setVocabList] = useState([]);
   const [currentProgress, setCurrentProgress] = useState(null);
@@ -50,8 +57,8 @@ export default function HomePage() {
   const [savedWrongCards, setSavedWrongCards] = useState([]);
   const [reviewDecisionCard, setReviewDecisionCard] = useState(null);
 
-  useEffect(function loadSavedBetaUser() {
-    const savedUser = window.localStorage.getItem("vocabMemoBetaUser");
+  useEffect(function loadSavedUser() {
+    const savedUser = window.localStorage.getItem("vocabMemoUser");
 
     if (!savedUser) {
       setIsLoading(false);
@@ -59,6 +66,7 @@ export default function HomePage() {
     }
 
     const parsedUser = JSON.parse(savedUser);
+    setName(parsedUser.name || "");
     setUsername(parsedUser.username || "");
     setEmail(parsedUser.email || "");
     loadUserAndSet(parsedUser);
@@ -104,50 +112,68 @@ export default function HomePage() {
       setSavedWrongCards(normalizeWrongCards(latestProgress));
       setStudyMode("");
       setCurrentIndex(0);
-    setShowDefinition(false);
-    setReviewDecisionCard(null);
-    setCorrectCount(0);
-    setWrongCount(0);
+      setShowDefinition(false);
+      setReviewDecisionCard(null);
+      setCorrectCount(0);
+      setWrongCount(0);
     } catch (error) {
       setCurrentUser(null);
-      window.localStorage.removeItem("vocabMemoBetaUser");
+      window.localStorage.removeItem("vocabMemoUser");
       setErrorMessage(error.message);
     } finally {
       setIsLoading(false);
     }
   }
 
-  async function handleLogin(event) {
+  async function handleAuthSubmit(event) {
     event.preventDefault();
 
     try {
       setIsLoading(true);
       setErrorMessage("");
 
-      const response = await fetch("/api/users/login", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json"
-        },
-        body: JSON.stringify({
-          username,
-          email
-        })
-      });
+      const isRegistering = authMode === "register";
+      const response = await fetch(
+        isRegistering ? "/api/users/register" : "/api/users/login",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify(
+            isRegistering
+              ? {
+                  name,
+                  username,
+                  email,
+                  password
+                }
+              : {
+                  identifier: username,
+                  password
+                }
+          )
+        }
+      );
 
       if (!response.ok) {
         const error = await response.json();
-        throw new Error(error.message || "Login failed.");
+        throw new Error(error.message || "Authentication failed.");
       }
 
       const user = await response.json();
       window.localStorage.setItem(
-        "vocabMemoBetaUser",
+        "vocabMemoUser",
         JSON.stringify({
+          name: user.name,
           username: user.username,
           email: user.email
         })
       );
+      setName(user.name || "");
+      setUsername(user.username || "");
+      setEmail(user.email || "");
+      setPassword("");
 
       await loadUserAndSet(user);
     } catch (error) {
@@ -157,8 +183,9 @@ export default function HomePage() {
   }
 
   function logOut() {
-    window.localStorage.removeItem("vocabMemoBetaUser");
+    window.localStorage.removeItem("vocabMemoUser");
     setCurrentUser(null);
+    setAuthMode("login");
     setAllEntries([]);
     setVocabList([]);
     setCurrentProgress(null);
@@ -170,6 +197,7 @@ export default function HomePage() {
     setShowDefinition(false);
     setReviewDecisionCard(null);
     setErrorMessage("");
+    setPassword("");
   }
 
   function resetSessionCounters() {
@@ -383,109 +411,66 @@ export default function HomePage() {
 
   if (!currentUser) {
     return (
-      <main className="page">
-        <section className="card login-card">
-          <p className="label">Beta Login</p>
-          <h1 className="login-title">Vocab Memo</h1>
-          <p className="login-help">
-            Enter the username and email from the beta user document you added in
-            MongoDB.
-          </p>
-
-          <form className="login-form" onSubmit={handleLogin}>
-            <label>
-              Username
-              <input
-                value={username}
-                onChange={(event) => setUsername(event.target.value)}
-                placeholder="demo-student"
-              />
-            </label>
-
-            <label>
-              Email
-              <input
-                type="email"
-                value={email}
-                onChange={(event) => setEmail(event.target.value)}
-                placeholder="student@example.com"
-              />
-            </label>
-
-            {errorMessage ? <p className="form-error">{errorMessage}</p> : null}
-
-            <button className="reveal" type="submit">
-              Log In
-            </button>
-          </form>
-        </section>
-      </main>
+      <BetaLoginForm
+        authMode={authMode}
+        name={name}
+        username={username}
+        email={email}
+        password={password}
+        errorMessage={errorMessage}
+        onAuthModeChange={setAuthMode}
+        onNameChange={setName}
+        onUsernameChange={setUsername}
+        onEmailChange={setEmail}
+        onPasswordChange={setPassword}
+        onSubmit={handleAuthSubmit}
+      />
     );
   }
 
   if (allEntries.length === 0) {
-    return <main className="page">No vocab entries found yet.</main>;
+    return (
+      <SetLibrary
+        label="No cards"
+        title="No vocab entries found yet."
+        message=""
+      />
+    );
   }
 
   if (!studyMode) {
     const savedIndex = currentProgress?.currentIndex ?? 0;
 
     return (
-      <main className="page">
-        <section className="card mode-card">
-          <p className="label">{currentProgress?.setName || defaultSetName}</p>
-          <h1 className="mode-title">Welcome back</h1>
-          <p className="login-help">
-            Choose how you want to study today.
-          </p>
-
-          <div className="mode-summary">
-            <span>Saved card: {Math.min(savedIndex + 1, allEntries.length)} of {allEntries.length}</span>
-            <span>Missed cards: {savedWrongCards.length}</span>
-          </div>
-
-          <div className="buttons">
-            <button className="reveal" onClick={startContinueMode}>
-              Continue
-            </button>
-            <button
-              className="wrong"
-              onClick={startReviewMissedMode}
-              disabled={savedWrongCards.length === 0}
-            >
-              Review Missed
-            </button>
-            <button className="correct" onClick={startOverMode}>
-              Start Over
-            </button>
-            <button className="secondary" onClick={logOut}>
-              Log Out
-            </button>
-          </div>
-        </section>
-      </main>
+      <StudyModeMenu
+        setName={currentProgress?.setName || defaultSetName}
+        savedIndex={savedIndex}
+        totalCards={allEntries.length}
+        missedCount={savedWrongCards.length}
+        onContinue={startContinueMode}
+        onReviewMissed={startReviewMissedMode}
+        onStartOver={startOverMode}
+        onLogOut={logOut}
+      />
     );
   }
 
   if (vocabList.length === 0) {
     return (
-      <main className="page">
-        <section className="card mode-card">
-          <p className="label">Review complete</p>
-          <h1 className="mode-title">Nice work</h1>
-          <p className="login-help">
-            There are no cards left in this study mode.
-          </p>
-          <div className="buttons">
-            <button className="reveal" onClick={() => setStudyMode("")}>
-              Choose Another Mode
-            </button>
-            <button className="secondary" onClick={logOut}>
-              Log Out
-            </button>
-          </div>
-        </section>
-      </main>
+      <SetLibrary
+        label="Review complete"
+        title="Nice work"
+        message="There are no cards left in this study mode."
+      >
+        <div className="buttons">
+          <button className="reveal" onClick={() => setStudyMode("")}>
+            Choose Another Mode
+          </button>
+          <button className="secondary" onClick={logOut}>
+            Log Out
+          </button>
+        </div>
+      </SetLibrary>
     );
   }
 
@@ -496,72 +481,25 @@ export default function HomePage() {
   const modeLabel = studyMode === "review" ? "Review Missed" : "Continue";
 
   return (
-    <main className="page">
-      <section className="card">
-        <p className="score">
-          {modeLabel} | Card {currentIndex + 1} of {vocabList.length} | Correct:{" "}
-          {correctCount} | Wrong: {wrongCount} | Score: {percentCorrect}%
-        </p>
-        <p className="saved-progress">
-          {currentUser.displayName || currentUser.username} | Previously wrong in
-          this set: {savedWrongCards.length}
-        </p>
-
-        <p className="label">{currentEntry.setName || "Current word"}</p>
-        <h1>{currentEntry.word}</h1>
-        <p className="part-of-speech">{currentEntry.partOfSpeech}</p>
-
-        {showDefinition ? (
-          <div className="definition">
-            <p>{currentEntry.definition}</p>
-            <p className="example">{currentEntry.example}</p>
-          </div>
-        ) : (
-          <p className="definition hidden">Definition hidden</p>
-        )}
-
-        {reviewDecisionCard ? (
-          <div className="review-decision">
-            <p>
-              You got this missed card correct. Remove it from your missed list?
-            </p>
-            <div className="buttons">
-              <button className="correct" onClick={removeReviewCard}>
-                Remove from Missed
-              </button>
-              <button className="secondary" onClick={keepReviewCard}>
-                Keep for Review
-              </button>
-            </div>
-          </div>
-        ) : null}
-
-        <div className="buttons">
-          <button className="reveal" onClick={revealDefinition}>
-            {showDefinition ? "Hide Definition" : "Reveal Definition"}
-          </button>
-          <button
-            className="correct"
-            onClick={() => recordAnswer(true)}
-            disabled={Boolean(reviewDecisionCard)}
-          >
-            Correct
-          </button>
-          <button
-            className="wrong"
-            onClick={() => recordAnswer(false)}
-            disabled={Boolean(reviewDecisionCard)}
-          >
-            Wrong
-          </button>
-          <button className="secondary" onClick={() => setStudyMode("")}>
-            Change Mode
-          </button>
-          <button className="secondary" onClick={logOut}>
-            Log Out
-          </button>
-        </div>
-      </section>
-    </main>
+    <Flashcard
+      modeLabel={modeLabel}
+      currentEntry={currentEntry}
+      currentIndex={currentIndex}
+      totalCards={vocabList.length}
+      correctCount={correctCount}
+      wrongCount={wrongCount}
+      percentCorrect={percentCorrect}
+      currentUser={currentUser}
+      missedCount={savedWrongCards.length}
+      showDefinition={showDefinition}
+      reviewDecisionCard={reviewDecisionCard}
+      onRevealDefinition={revealDefinition}
+      onCorrect={() => recordAnswer(true)}
+      onWrong={() => recordAnswer(false)}
+      onRemoveReviewCard={removeReviewCard}
+      onKeepReviewCard={keepReviewCard}
+      onChangeMode={() => setStudyMode("")}
+      onLogOut={logOut}
+    />
   );
 }

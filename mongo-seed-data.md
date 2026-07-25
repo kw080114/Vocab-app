@@ -112,17 +112,8 @@ Replace `setId` and `wordId` with the real ObjectId values from your inserted
 
 ## users
 
-For beta testing, manually insert a simple user like this in MongoDB Compass:
-
-```json
-{
-  "username": "beta-student",
-  "email": "student@example.com"
-}
-```
-
-When this user logs in, the app will add default study progress for the
-`Test Ninjas SAT Vocabulary` set.
+Users should now be created through the app's registration form so the password
+is hashed before it is stored in MongoDB.
 
 The app stores missed cards like this:
 

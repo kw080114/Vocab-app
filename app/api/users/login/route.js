@@ -1,3 +1,4 @@
+import bcrypt from "bcryptjs";
 import { NextResponse } from "next/server";
 import { getMongoDatabase } from "../../../../lib/mongodb";
 
@@ -34,12 +35,14 @@ function defaultProgress() {
 export async function POST(request) {
   try {
     const body = await request.json();
-    const username = body.username?.trim();
+    const identifier = body.identifier?.trim().toLowerCase();
+    const username = body.username?.trim().toLowerCase();
     const email = body.email?.trim().toLowerCase();
+    const password = body.password || "";
 
-    if (!username || !email) {
+    if ((!identifier && !username && !email) || !password) {
       return NextResponse.json(
-        { message: "Username and email are required." },
+        { message: "Username or email and password are required." },
         { status: 400 }
       );
     }
@@ -47,23 +50,46 @@ export async function POST(request) {
     const db = await getMongoDatabase(databaseName);
     const usersCollection = db.collection(usersCollectionName);
 
-    const user = await usersCollection.findOne({ username, email });
+    const user = await usersCollection.findOne(
+      identifier
+        ? { $or: [{ username: identifier }, { email: identifier }] }
+        : { username, email }
+    );
 
     if (!user) {
       return NextResponse.json(
-        { message: "No beta user found with that username and email." },
+        { message: "No user found with those login details." },
         { status: 404 }
       );
     }
 
-    if (!user.displayName || !Array.isArray(user.studyProgress)) {
+    if (!user.passwordHash) {
+      return NextResponse.json(
+        {
+          message:
+            "This user does not have a password yet. Please register a new account."
+        },
+        { status: 401 }
+      );
+    }
+
+    const passwordMatches = await bcrypt.compare(password, user.passwordHash);
+
+    if (!passwordMatches) {
+      return NextResponse.json(
+        { message: "Incorrect password." },
+        { status: 401 }
+      );
+    }
+
+    if (!user.name || !Array.isArray(user.studyProgress)) {
       const progressDefaults = defaultProgress();
       const fieldsToUpdate = {
         updatedAt: new Date()
       };
 
-      if (!user.displayName) {
-        fieldsToUpdate.displayName = username;
+      if (!user.name) {
+        fieldsToUpdate.name = user.displayName || user.username;
       }
 
       if (!Array.isArray(user.studyProgress)) {
@@ -82,10 +108,10 @@ export async function POST(request) {
 
     return NextResponse.json(cleanUser(updatedUser));
   } catch (error) {
-    console.error("Failed to log in beta user:", error);
+    console.error("Failed to log in user:", error);
 
     return NextResponse.json(
-      { message: "Failed to log in beta user." },
+      { message: "Failed to log in user." },
       { status: 500 }
     );
   }
